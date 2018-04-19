@@ -7,16 +7,13 @@
 
 #include <chrono>
 #include <ctime>
-#include <cstdlib>
 
 #include "menuItem.h"
 #include "Waiter.h"
 #include "Customer.h"
 #include "orderBoard.h"
+#include "SharedMemoryWorker.h"
 
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
 
 using namespace std;
 
