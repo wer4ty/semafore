@@ -17,4 +17,5 @@ class menuItem {
 		menuItem(int, string, int, int);
 		~menuItem();
 		void print();
+		char* str();
 };
