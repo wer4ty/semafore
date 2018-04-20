@@ -9,7 +9,7 @@ orderBoard::orderBoard(int c, int i, int a) {
 	cId = c;
 	itemId = i;
 	amount = a;
-	done = false;
+	done = true;
 }
 
 

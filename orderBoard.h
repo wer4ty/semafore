@@ -17,4 +17,13 @@ class orderBoard {
 		void print();
 		char* str();
 		orderBoard* obj(char *);
+
+		inline int getId() {return cId; }
+		inline int getItemId() {return itemId; }
+		inline int getAmount() {return amount; }
+		inline bool getOrderStatus() {return done;}
+
+		inline void setItemId(int item) {itemId = item; }
+		inline void setAmount(int a) {amount = a; }
+		inline void setOrderStatus(bool status) {done = status; }
 };

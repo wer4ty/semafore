@@ -12,4 +12,6 @@ class Waiter {
 		Waiter();
 		Waiter(int, int, int);
 		~Waiter();
+
+		inline int getId() { return id; }
 };

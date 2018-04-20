@@ -59,6 +59,44 @@ int sleep_time_gen(int min, int max) {
 	return tmp;
 }
 
+
+// 10. Customers functions
+
+void readMenu(int cId) {
+	// check status of previous order
+	if (customers_orders[cId].getOrderStatus()) { // true => finish 
+	int RIndex = rand() % menu_items;
+	int RAmount = rand() % 4;
+	int probability = rand() % 2;
+
+	if (RAmount == 0) { RAmount++; }
+
+			// if probability 1 order
+			if (probability) {
+			cout << "\tCustomer ID: " << cId << " reads a menu about " << menu[RIndex].getName() <<" (ordered, amount " << RAmount << ")" << endl;
+				customers_orders[cId].setItemId(RIndex);
+				customers_orders[cId].setItemId(RAmount);
+				customers_orders[cId].setOrderStatus(true);
+			}
+			// probability  0 do not order
+			else {
+			cout << "\tCustomer ID: " << cId << " reads a menu about " << menu[RIndex].getName() <<" (doesn't want to order)" << endl;
+			}
+	}
+}
+
+
+// 11. Waiters funtions
+void performOrders(int wId) {
+	for (int i=0; i<customers; i++) {
+		if (customers_orders[i].getOrderStatus() == false) {
+			menu[customers_orders[i].getItemId()].increaseOrders();
+			customers_orders[i].setOrderStatus(true);
+			cout << "\tWaiter ID: " << wId << " performs the order of cutomer ID " << i << " ( " << customers_orders[i].getAmount() << " " << menu[customers_orders[i].getItemId()].getName() << ")";
+		}
+	}
+}
+
 // 1. Check if all simulation params are correct
 void checkInputParams(int argc, char* argv[]) {
 	string error_args = "Input arguments are not valid";
@@ -124,7 +162,15 @@ void createSubProc() {
 			else if(tmp_pid == 0) {
 				update_timer();
 				Waiter* w = new Waiter(i, getpid(), getppid());
+				
+
+				// waiter action
+				while((int)seconds <= simulation_time) {
 				sleep(sleep_time_gen(1,2));
+				update_timer();
+				performOrders(w->getId());
+				}
+
 				delete w;
 				exit(0);	
 			}
@@ -138,10 +184,11 @@ void createSubProc() {
 				update_timer();
 				Customer* c = new Customer(i, getpid(), getppid());
 
+				// customer action
 				while((int)seconds <= simulation_time) {
 				sleep(sleep_time_gen(3,6));
 				update_timer();
-				c->run();
+				readMenu(c->getId());
 				}
 
 				delete c;
@@ -150,12 +197,10 @@ void createSubProc() {
 		}
 
 		// main process wait while all children will stop
-		while ((tmp_pid=waitpid(-1, &tmp_status, 0))!=-1) {
-			cout << "CHILDREN: "<< tmp_pid << " STOP" << endl;
-		}
+		while ((tmp_pid=waitpid(-1, &tmp_status, 0))!=-1) {}
 }
 
-// 6. Compress to char* array to save in shared memory
+// 6. Compress to string to save in shared memory
 string compressToSegment(int flag) {
 	// flag = 0 => menuItem
 	// flag = 1 => orderBoard
@@ -175,10 +220,42 @@ string compressToSegment(int flag) {
 		}
 	}
 		tmp.pop_back();
-		//cout << tmp << endl;
 		return tmp;
-	
 }
+
+// 7. Put into shared memory 
+void putInSharedMemory(int flag) {
+	string tmp_buffer;
+	// flag = 0 => menuItem
+	// flag = 1 => orderBoard
+
+	if (flag == 0) {
+	tmp_buffer =  compressToSegment(flag);
+	tmp_buffer = buffer.erase(0,1);
+	menuSegment->put(const_cast<char*>(buffer.c_str()));
+	tmp_buffer.clear();
+	}
+
+	if (flag == 1) {
+	tmp_buffer =  compressToSegment(flag);
+	tmp_buffer = buffer.erase(0,1);
+	orderSegment->put(const_cast<char*>(buffer.c_str()));
+	buffer.clear();
+	}
+}
+
+// 8. Decompress menu items from shared memory to global array menu[]
+void menuDecompress() {
+	char* tmp_menu = menuSegment->get();
+	cout << tmp_menu << endl;
+}
+
+// 9. Decompress order boards from shared memory to global array orderBoards[]
+void orderBoardsDecompress() {
+	char* tmp_orders = orderSegment->get();
+	cout << tmp_orders << endl;
+}
+
  
 int main(int argc, char* argv[]) {
 	
@@ -188,21 +265,9 @@ int main(int argc, char* argv[]) {
 	printMenu(menu_items);
 	createOrdersBoards(customers);
 
-
-	
-	// first put into shared memory menu
-	buffer =  compressToSegment(0);
-	buffer = buffer.erase(0,1);
-	menuSegment->put(const_cast<char*>(buffer.c_str()));
-	buffer.clear();
-
-
-	//first put into shared memory order boards
-	buffer =  compressToSegment(1);
-	buffer = buffer.erase(0,1);
-	orderSegment->put(const_cast<char*>(buffer.c_str()));
-	buffer.clear();
-
+	// save into shared memory menu and empty order boards
+	putInSharedMemory(0); // menu
+	putInSharedMemory(1); // order boards for each customer
 
 
 	//start multi-processing

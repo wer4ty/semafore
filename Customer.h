@@ -12,5 +12,5 @@ class Customer {
 		Customer();
 		Customer(int, int, int);
 		~Customer();
-		void run();
+		inline int getId() { return id; }
 };

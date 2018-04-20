@@ -19,5 +19,10 @@ class menuItem {
 		void print();
 		char* str();
 		menuItem* obj(char *);
-		void increaseOrders();
+
+		inline void increaseOrders() { orders++; }
+		inline string getName() {return name; }
+		inline int getId() {return id; }
+		inline int getPrice() {return price; }
+		inline int getOrdersNum() {return orders; }
 };
