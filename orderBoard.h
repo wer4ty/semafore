@@ -16,4 +16,5 @@ class orderBoard {
 		~orderBoard();
 		void print();
 		char* str();
+		orderBoard* obj(char *);
 };

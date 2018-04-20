@@ -1,4 +1,10 @@
+#include <iostream>
+#include <string>
 #include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <ctime>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -11,12 +17,12 @@ class SharedMemoryWorker {
 		int shmid;
 		key_t key;
 		char *shm;
+		char *s;
 		int segment_size;
 
 	public:
 		SharedMemoryWorker();
-		bool put();
-		bool get();
-		key_t returnKey();
+		void put(char*);
+		char* get();
 		~SharedMemoryWorker();
 };

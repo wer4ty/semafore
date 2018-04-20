@@ -22,13 +22,18 @@ int simulation_time, menu_items, customers, waiters;
 menuItem menu[10];
 orderBoard customers_orders[10];
 
-// timer
-auto start = chrono::high_resolution_clock::now(); // start timer
+// init timer
+auto start = chrono::high_resolution_clock::now();
 auto finish = chrono::high_resolution_clock::now();
 auto microseconds = chrono::duration_cast<std::chrono::microseconds>(finish-start);
 double seconds = 0.00;
 
+// shared memory
+string buffer;
+SharedMemoryWorker* menuSegment = new SharedMemoryWorker();
+SharedMemoryWorker* orderSegment = new SharedMemoryWorker();
 
+// 0.Support functions
 void update_timer() {
 	auto finish = chrono::high_resolution_clock::now();
 	microseconds = chrono::duration_cast<std::chrono::microseconds>(finish-start);
@@ -89,12 +94,10 @@ void generateMenu(int number_items) {
 // 3. Print menu
 void printMenu(int number_items) {
 	if (number_items < 1) exit(1);
-	//char* buffer;
 	cout << "\n==========Menu list==========" << endl;
 	cout << "Id " << left << setw(12) << "Name" << "Price " << "Orders" << endl;
 	for(int i=0; i<number_items; i++) {
 		menu[i].print();
-		//buffer = menu[i].str();
 	}
 }
 
@@ -151,9 +154,33 @@ void createSubProc(int flag) {
 		}
 	}
 }
+
+// 6. Compress to char* array to save in shared memory
+string compressToSegment(int flag) {
+	// flag = 0 => menuItem
+	// flag = 1 => orderBoard
+
+	string tmp;
+	if(flag) {
+		for (int i=0; i<customers; i++) {
+			tmp += customers_orders[i].str();
+			tmp += ":";
+		}	
+	}
+
+	else {
+		for (int i=0; i<menu_items; i++) {
+			tmp += menu[i].str();
+			tmp += ":";
+		}
+	}
+		tmp.pop_back();
+		//cout << tmp << endl;
+		return tmp;
+	
+}
  
 int main(int argc, char* argv[]) {
-	int pid,status;
 	
 
 	checkInputParams(argc, argv);
@@ -161,35 +188,54 @@ int main(int argc, char* argv[]) {
 	printMenu(menu_items);
 	createOrdersBoards(customers);
 
-	pid = fork();
-	if (pid == -1) {
-		perror("Fork: ");
-		exit(1);
-	}
 
-	// child process (manager)
-	else if (pid == 0) {
+	
+	// first put into shared memory menu
+	buffer =  compressToSegment(0);
+	buffer = buffer.erase(0,1);
+	menuSegment->put(const_cast<char*>(buffer.c_str()));
 
-		
-		cout << "\n" << endl;
-		update_timer();
-		cout  << " Main process start creating sub-process" << endl;
+	buffer.clear();
+	sleep(1);
 
-		createSubProc(1); // waiters
-		createSubProc(0); // customers
+	char* shMemRes = menuSegment->get();
+	cout << shMemRes << endl;
+
+	//first put into shared memory order boards
+	buffer =  compressToSegment(1);
+	buffer = buffer.erase(0,1);
+	orderSegment->put(const_cast<char*>(buffer.c_str()));
+	shMemRes = orderSegment->get();
+	cout << shMemRes << endl;
+	
+	buffer.clear();
 
 
 
-		
-	}
+	// start multi-processing
+	//int pid,status;
+	// pid = fork();
+	// if (pid == -1) {
+	// 	perror("Fork: ");
+	// 	exit(1);
+	// }
 
-	// parent process
-	else {
-		wait(&status);
+	// // child process (manager)
+	// else if (pid == 0) {		
+	// 	cout << "\n" << endl;
+	// 	update_timer();
+	// 	cout  << " Main process start creating sub-process" << endl;
 
-		update_timer();
-		cout << " Main ID " << pid << " end work" << endl;
-	}
+	// 	createSubProc(1); // waiters
+	// 	createSubProc(0); // customers		
+	// }
+
+	// // parent process
+	// else {
+	// 	wait(&status);
+	// 	update_timer();
+	// 	cout << " Main ID " << pid << " end work" << endl;
+	// }
 
 
 

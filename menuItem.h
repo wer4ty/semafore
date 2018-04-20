@@ -18,4 +18,6 @@ class menuItem {
 		~menuItem();
 		void print();
 		char* str();
+		menuItem* obj(char *);
+		void increaseOrders();
 };
