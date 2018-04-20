@@ -41,7 +41,7 @@ menuItem* menuItem::obj(char * str) {
 	    token = s.substr(0, pos);
 	    s.erase(0, pos + delimiter.length());
 
-	    if (i == 0) { if(token.empty()) {id = 0; } else { id = stoi(token); } }
+	    if (i == 0) { if(token.empty()) {id = 1; } else { id = stoi(token); } }
 	    if (i == 1) { name = token; }
 	    if (i == 2) { price = stoi(token); }
 	    i++;

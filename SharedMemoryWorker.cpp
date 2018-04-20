@@ -3,9 +3,7 @@
 using namespace std;
 
 
-SharedMemoryWorker::SharedMemoryWorker() {
-	srand ( time(NULL) );
-	int randNum =  rand() % 100000;
+SharedMemoryWorker::SharedMemoryWorker(int randNum) {
 	key = ftok(".", randNum);
 	segment_size = 1024;
 

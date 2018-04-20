@@ -32,8 +32,8 @@ double seconds = 0.00;
 // shared memory
 string buffer;
 char* shMemRes;
-SharedMemoryWorker* menuSegment = new SharedMemoryWorker();
-SharedMemoryWorker* orderSegment = new SharedMemoryWorker();
+SharedMemoryWorker* menuSegment = new SharedMemoryWorker(rand() % 100000);
+SharedMemoryWorker* orderSegment = new SharedMemoryWorker(rand() % 10000);
 
 // 0.Support functions
 void update_timer() {
@@ -153,6 +153,51 @@ void createOrdersBoards(int max) {
 void createSubProc() {
 	int tmp_pid, tmp_status;
 
+	// int num_of_processes = waiters + customers;
+	// int j = 0;
+
+	// for (int i=0; i<num_of_processes; i++) {
+	// 	tmp_pid = fork();
+	// 	if(tmp_pid == -1) { perror("Fork: "); exit(1); }
+
+	// 	// new chlild process
+	// 	else if(tmp_pid == 0) {
+	// 		Waiter* w = NULL;
+	// 		Customer* c = NULL;
+
+	// 		// waiter
+	// 		update_timer();
+	// 		if (i < waiters) {
+	// 			w = new Waiter(i, getpid(), getppid());
+	// 		}
+
+	// 		//customer
+	// 		else {
+	// 			c = new Customer(j, getpid(), getppid());
+	// 			j++;
+	// 		}
+
+	// 		while((int)seconds <= simulation_time) {
+	// 			update_timer();
+	// 			// waiter action
+	// 			if (w) {
+	// 				sleep(sleep_time_gen(1,2));
+	// 				performOrders(w->getId());
+	// 			}
+
+	// 			//customer action
+	// 			if (c) {
+	// 				sleep(sleep_time_gen(3,6));
+	// 				readMenu(c->getId());
+	// 			}
+
+	// 		}
+
+	// 		delete w;
+	// 		delete c;
+	// 		exit(0);
+	// 	}
+	// }
 	
 		// Create waiters 
 		for (int i=0; i<waiters; i++) {
@@ -225,20 +270,19 @@ string compressToSegment(int flag) {
 
 // 7. Put into shared memory 
 void putInSharedMemory(int flag) {
-	string tmp_buffer;
 	// flag = 0 => menuItem
 	// flag = 1 => orderBoard
 
 	if (flag == 0) {
-	tmp_buffer =  compressToSegment(flag);
-	tmp_buffer = buffer.erase(0,1);
+	buffer =  compressToSegment(flag);
+	buffer = buffer.erase(0,1);
 	menuSegment->put(const_cast<char*>(buffer.c_str()));
-	tmp_buffer.clear();
+	buffer.clear();
 	}
 
 	if (flag == 1) {
-	tmp_buffer =  compressToSegment(flag);
-	tmp_buffer = buffer.erase(0,1);
+	buffer =  compressToSegment(flag);
+	buffer = buffer.erase(0,1);
 	orderSegment->put(const_cast<char*>(buffer.c_str()));
 	buffer.clear();
 	}
@@ -246,14 +290,38 @@ void putInSharedMemory(int flag) {
 
 // 8. Decompress menu items from shared memory to global array menu[]
 void menuDecompress() {
-	char* tmp_menu = menuSegment->get();
-	cout << tmp_menu << endl;
+	char* tmp_menu = menuSegment->get(); // get from shared memory
+	string s = tmp_menu;
+	string delimiter = ":";
+	int j = 0;
+	size_t pos = 0;
+	string token;
+	while ((pos = s.find(delimiter)) != string::npos) {
+		token = s.substr(0, pos);
+		menu[j].obj(const_cast<char*>(token.c_str()));
+	    s.erase(0, pos + delimiter.length());
+	    j++;
+	}
+	menu[j].obj(const_cast<char*>(s.c_str()));
+	
 }
 
 // 9. Decompress order boards from shared memory to global array orderBoards[]
 void orderBoardsDecompress() {
-	char* tmp_orders = orderSegment->get();
-	cout << tmp_orders << endl;
+	
+	char* tmp_orders = orderSegment->get(); // get from shared memory
+	string s = tmp_orders;
+	string delimiter = ":";
+	int j = 0;
+	size_t pos = 0;
+	string token;
+	while ((pos = s.find(delimiter)) != string::npos) {
+		token = s.substr(0, pos);
+		customers_orders[j].obj(const_cast<char*>(token.c_str()));
+	    s.erase(0, pos + delimiter.length());
+	    j++;
+	}
+	customers_orders[j].obj(const_cast<char*>(s.c_str()));
 }
 
  
@@ -284,12 +352,17 @@ int main(int argc, char* argv[]) {
 		update_timer();
 		cout  << " Main process start creating sub-process" << endl;
 
-		createSubProc(); // waiters and customers
+		//createSubProc(); // waiters and customers
+		menuDecompress();
+		orderBoardsDecompress();
+
+		printMenu(menu_items);
 	}
 
 	// parent process
 	else {
 		wait(&status);
+
 		update_timer();
 		cout << " Main ID " << pid << " end work" << endl;
 	}

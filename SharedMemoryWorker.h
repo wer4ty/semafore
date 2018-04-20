@@ -21,8 +21,9 @@ class SharedMemoryWorker {
 		int segment_size;
 
 	public:
-		SharedMemoryWorker();
+		SharedMemoryWorker(int);
 		void put(char*);
 		char* get();
 		~SharedMemoryWorker();
+		inline key_t getKey() { return key; }
 };
