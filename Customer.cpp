@@ -18,3 +18,7 @@ Customer::Customer(int i, int p, int pp) {
 Customer::~Customer() {
 	cout << "\tCustomer " << id << " PID end work " << pid << " PPID " << ppid << endl;
 }
+
+void Customer::run() {
+	cout << "\tcustomer " << id << " action" << endl;
+}

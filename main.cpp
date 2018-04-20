@@ -14,13 +14,14 @@
 #include "orderBoard.h"
 #include "SharedMemoryWorker.h"
 
+#define STATIC_ARRAY_SIZE 10
 
 using namespace std;
 
 // global params
 int simulation_time, menu_items, customers, waiters;
-menuItem menu[10];
-orderBoard customers_orders[10];
+menuItem menu[STATIC_ARRAY_SIZE];
+orderBoard customers_orders[STATIC_ARRAY_SIZE];
 
 // init timer
 auto start = chrono::high_resolution_clock::now();
@@ -30,6 +31,7 @@ double seconds = 0.00;
 
 // shared memory
 string buffer;
+char* shMemRes;
 SharedMemoryWorker* menuSegment = new SharedMemoryWorker();
 SharedMemoryWorker* orderSegment = new SharedMemoryWorker();
 
@@ -110,17 +112,15 @@ void createOrdersBoards(int max) {
 }
 
 // 5 Create sub-processes
-void createSubProc(int flag) {
-	// flag 1 => Waiter
-	// flag 0 => Customer
-
+void createSubProc() {
 	int tmp_pid, tmp_status;
 
-	if (flag) {
+	
 		// Create waiters 
 		for (int i=0; i<waiters; i++) {
 			tmp_pid = fork();
 			if(tmp_pid == -1) { perror("Fork: "); exit(1); }
+			
 			else if(tmp_pid == 0) {
 				update_timer();
 				Waiter* w = new Waiter(i, getpid(), getppid());
@@ -128,14 +128,8 @@ void createSubProc(int flag) {
 				delete w;
 				exit(0);	
 			}
-			else {
-					wait(&tmp_status);
-			}
-
 		}
-	}
 
-	else {
 		// Create customers 
 		for (int i=0; i<customers; i++) {
 			tmp_pid = fork();
@@ -143,16 +137,22 @@ void createSubProc(int flag) {
 			else if(tmp_pid == 0) {
 				update_timer();
 				Customer* c = new Customer(i, getpid(), getppid());
-				sleep(sleep_time_gen(3,6));
-				delete c;
-						exit(0);	
-			}
-			else {
-					wait(&tmp_status);
-			}
 
+				while((int)seconds <= simulation_time) {
+				sleep(sleep_time_gen(3,6));
+				update_timer();
+				c->run();
+				}
+
+				delete c;
+				exit(0);	
+			}
 		}
-	}
+
+		// main process wait while all children will stop
+		while ((tmp_pid=waitpid(-1, &tmp_status, 0))!=-1) {
+			cout << "CHILDREN: "<< tmp_pid << " STOP" << endl;
+		}
 }
 
 // 6. Compress to char* array to save in shared memory
@@ -194,48 +194,40 @@ int main(int argc, char* argv[]) {
 	buffer =  compressToSegment(0);
 	buffer = buffer.erase(0,1);
 	menuSegment->put(const_cast<char*>(buffer.c_str()));
-
 	buffer.clear();
-	sleep(1);
 
-	char* shMemRes = menuSegment->get();
-	cout << shMemRes << endl;
 
 	//first put into shared memory order boards
 	buffer =  compressToSegment(1);
 	buffer = buffer.erase(0,1);
 	orderSegment->put(const_cast<char*>(buffer.c_str()));
-	shMemRes = orderSegment->get();
-	cout << shMemRes << endl;
-	
 	buffer.clear();
 
 
 
-	// start multi-processing
-	//int pid,status;
-	// pid = fork();
-	// if (pid == -1) {
-	// 	perror("Fork: ");
-	// 	exit(1);
-	// }
+	//start multi-processing
+	int pid,status;
+	pid = fork();
+	if (pid == -1) {
+		perror("Fork: ");
+		exit(1);
+	}
 
-	// // child process (manager)
-	// else if (pid == 0) {		
-	// 	cout << "\n" << endl;
-	// 	update_timer();
-	// 	cout  << " Main process start creating sub-process" << endl;
+	// child process (manager)
+	else if (pid == 0) {		
+		cout << "\n" << endl;
+		update_timer();
+		cout  << " Main process start creating sub-process" << endl;
 
-	// 	createSubProc(1); // waiters
-	// 	createSubProc(0); // customers		
-	// }
+		createSubProc(); // waiters and customers
+	}
 
-	// // parent process
-	// else {
-	// 	wait(&status);
-	// 	update_timer();
-	// 	cout << " Main ID " << pid << " end work" << endl;
-	// }
+	// parent process
+	else {
+		wait(&status);
+		update_timer();
+		cout << " Main ID " << pid << " end work" << endl;
+	}
 
 
 

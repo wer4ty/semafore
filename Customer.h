@@ -12,4 +12,5 @@ class Customer {
 		Customer();
 		Customer(int, int, int);
 		~Customer();
+		void run();
 };
