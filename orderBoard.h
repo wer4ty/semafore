@@ -12,7 +12,6 @@ class orderBoard {
 	public:
 		orderBoard();
 		orderBoard(int, int, int);
-		void orderDone();
 		~orderBoard();
 		void print();
 		char* str();
@@ -26,4 +25,5 @@ class orderBoard {
 		inline void setItemId(int item) {itemId = item; }
 		inline void setAmount(int a) {amount = a; }
 		inline void setOrderStatus(bool status) {done = status; }
+		inline void orderDone() { done = true; }
 };

@@ -15,10 +15,6 @@ orderBoard::orderBoard(int c, int i, int a) {
 
 orderBoard::~orderBoard() {}
 
-void orderBoard::orderDone() {
-	done = true;
-}
-
 void orderBoard::print() {
 	cout << cId << " "<< itemId << " " << amount << " " << done << endl; 
 }

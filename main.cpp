@@ -14,6 +14,9 @@
 #include "orderBoard.h"
 #include "SharedMemoryWorker.h"
 
+#include "semaphore_inc.h"
+
+
 #define STATIC_ARRAY_SIZE 10
 
 using namespace std;
@@ -34,6 +37,16 @@ string buffer;
 char* shMemRes;
 SharedMemoryWorker* menuSegment = new SharedMemoryWorker(rand() % 100000);
 SharedMemoryWorker* orderSegment = new SharedMemoryWorker(rand() % 10000);
+
+// semaphores
+key_t mutex_key  = ftok(".", rand() % 1000);
+int mutex; 
+
+// key_t s1_key = ftok(".", rand() % 10000);
+// int s1 = initsem(s1_key, 0);
+
+// key_t s2_key = ftok(".", rand() % 100);
+// int s2 = initsem(s1_key, customers); // number of possible orders by parallel 
 
 // 0.Support functions
 void update_timer() {
@@ -59,43 +72,6 @@ int sleep_time_gen(int min, int max) {
 	return tmp;
 }
 
-
-// 10. Customers functions
-
-void readMenu(int cId) {
-	// check status of previous order
-	if (customers_orders[cId].getOrderStatus()) { // true => finish 
-	int RIndex = rand() % menu_items;
-	int RAmount = rand() % 4;
-	int probability = rand() % 2;
-
-	if (RAmount == 0) { RAmount++; }
-
-			// if probability 1 order
-			if (probability) {
-			cout << "\tCustomer ID: " << cId << " reads a menu about " << menu[RIndex].getName() <<" (ordered, amount " << RAmount << ")" << endl;
-				customers_orders[cId].setItemId(RIndex);
-				customers_orders[cId].setItemId(RAmount);
-				customers_orders[cId].setOrderStatus(true);
-			}
-			// probability  0 do not order
-			else {
-			cout << "\tCustomer ID: " << cId << " reads a menu about " << menu[RIndex].getName() <<" (doesn't want to order)" << endl;
-			}
-	}
-}
-
-
-// 11. Waiters funtions
-void performOrders(int wId) {
-	for (int i=0; i<customers; i++) {
-		if (customers_orders[i].getOrderStatus() == false) {
-			menu[customers_orders[i].getItemId()].increaseOrders();
-			customers_orders[i].setOrderStatus(true);
-			cout << "\tWaiter ID: " << wId << " performs the order of cutomer ID " << i << " ( " << customers_orders[i].getAmount() << " " << menu[customers_orders[i].getItemId()].getName() << ")";
-		}
-	}
-}
 
 // 1. Check if all simulation params are correct
 void checkInputParams(int argc, char* argv[]) {
@@ -141,7 +117,8 @@ void printMenu(int number_items) {
 	}
 }
 
-// create order boards for each future customer
+
+//4. create order boards for each future customer
 void createOrdersBoards(int max) {
 	if (max < 0) exit(1);
 	for (int i=0; i<max; i++) {
@@ -149,100 +126,14 @@ void createOrdersBoards(int max) {
 	}
 }
 
-// 5 Create sub-processes
-void createSubProc() {
-	int tmp_pid, tmp_status;
-
-	// int num_of_processes = waiters + customers;
-	// int j = 0;
-
-	// for (int i=0; i<num_of_processes; i++) {
-	// 	tmp_pid = fork();
-	// 	if(tmp_pid == -1) { perror("Fork: "); exit(1); }
-
-	// 	// new chlild process
-	// 	else if(tmp_pid == 0) {
-	// 		Waiter* w = NULL;
-	// 		Customer* c = NULL;
-
-	// 		// waiter
-	// 		update_timer();
-	// 		if (i < waiters) {
-	// 			w = new Waiter(i, getpid(), getppid());
-	// 		}
-
-	// 		//customer
-	// 		else {
-	// 			c = new Customer(j, getpid(), getppid());
-	// 			j++;
-	// 		}
-
-	// 		while((int)seconds <= simulation_time) {
-	// 			update_timer();
-	// 			// waiter action
-	// 			if (w) {
-	// 				sleep(sleep_time_gen(1,2));
-	// 				performOrders(w->getId());
-	// 			}
-
-	// 			//customer action
-	// 			if (c) {
-	// 				sleep(sleep_time_gen(3,6));
-	// 				readMenu(c->getId());
-	// 			}
-
-	// 		}
-
-	// 		delete w;
-	// 		delete c;
-	// 		exit(0);
-	// 	}
-	// }
-	
-		// Create waiters 
-		for (int i=0; i<waiters; i++) {
-			tmp_pid = fork();
-			if(tmp_pid == -1) { perror("Fork: "); exit(1); }
-			
-			else if(tmp_pid == 0) {
-				update_timer();
-				Waiter* w = new Waiter(i, getpid(), getppid());
-				
-
-				// waiter action
-				while((int)seconds <= simulation_time) {
-				sleep(sleep_time_gen(1,2));
-				update_timer();
-				performOrders(w->getId());
-				}
-
-				delete w;
-				exit(0);	
-			}
-		}
-
-		// Create customers 
-		for (int i=0; i<customers; i++) {
-			tmp_pid = fork();
-			if(tmp_pid == -1) { perror("Fork: "); exit(1); }
-			else if(tmp_pid == 0) {
-				update_timer();
-				Customer* c = new Customer(i, getpid(), getppid());
-
-				// customer action
-				while((int)seconds <= simulation_time) {
-				sleep(sleep_time_gen(3,6));
-				update_timer();
-				readMenu(c->getId());
-				}
-
-				delete c;
-				exit(0);	
-			}
-		}
-
-		// main process wait while all children will stop
-		while ((tmp_pid=waitpid(-1, &tmp_status, 0))!=-1) {}
+// 5. Print order boards
+void printOrderBoards(int number_items) {
+	if (number_items < 1) exit(1);
+	cout << "\n==========Orders list==========" << endl;
+	cout << "cId " << left << setw(12) << "item id" << "Amount " << "Status" << endl;
+	for(int i=0; i<number_items; i++) {
+		customers_orders[i].print();
+	}
 }
 
 // 6. Compress to string to save in shared memory
@@ -324,9 +215,124 @@ void orderBoardsDecompress() {
 	customers_orders[j].obj(const_cast<char*>(s.c_str()));
 }
 
+// 10. Customers functions
+void readMenu(int cId) {
+	// check status of previous order
+	if (customers_orders[cId].getOrderStatus()) { // true => finish 
+
+	orderBoardsDecompress(); // get order from shared memory and transform to global array
+
+	int RIndex = rand() % menu_items;
+	int RAmount = rand() % 4;
+	int probability = rand() % 2;
+
+	if (RAmount == 0) { RAmount++; }
+
+			// if probability 1 order
+			if (probability) {
+			cout << "\tCustomer ID: " << cId << " reads a menu about " << menu[RIndex].getName() <<" (ordered, amount " << RAmount << ")" << endl;
+				customers_orders[cId].setItemId(RIndex);
+				customers_orders[cId].setItemId(RAmount);
+				customers_orders[cId].setOrderStatus(true);
+
+				putInSharedMemory(1); // if make order put all orders in shared memory
+			}
+			// probability  0 do not order
+			else {
+			cout << "\tCustomer ID: " << cId << " reads a menu about " << menu[RIndex].getName() <<" (doesn't want to order)" << endl;
+			}
+	}
+}
+
+
+// 11. Waiters funtions
+void performOrders(int wId) {
+
+	menuDecompress();  // get menu from shared memory and transfrom to global array
+	orderBoardsDecompress(); // get order from shared memory and transform to global array
+
+	for (int i=0; i<customers; i++) {
+		if (customers_orders[i].getOrderStatus() == false) {
+			menu[customers_orders[i].getItemId()].increaseOrders();
+			customers_orders[i].setOrderStatus(true);
+			cout << "\tWaiter ID: " << wId << " performs the order of cutomer ID " << i << " ( " << customers_orders[i].getAmount() << " " << menu[customers_orders[i].getItemId()].getName() << ")";
+
+			// make changes save it in shared memory
+			putInSharedMemory(1);
+			putInSharedMemory(0);
+		}
+		else {
+			cout << "\tWaiter ID: " << wId << " no orders to perform " << endl;
+		}
+	}
+}
+
+// 12. Create sub-processes
+void createSubProc() {
+	int tmp_pid, tmp_status;
+	
+		// Create waiters 
+		for (int i=0; i<waiters; i++) {
+			tmp_pid = fork();
+			if(tmp_pid == -1) { perror("Fork: "); exit(1); }
+			
+			else if(tmp_pid == 0) {
+				update_timer();
+				Waiter* w = new Waiter(i, getpid(), getppid());
+				
+				// waiter action
+				while((int)seconds <= simulation_time) {
+
+					//wait
+					p(mutex);
+
+				sleep(sleep_time_gen(1,2));
+				update_timer();
+				performOrders(w->getId());
+
+					v(mutex);
+					// leave
+				}
+
+				delete w;
+				exit(0);	
+			}
+		}
+
+		// Create customers 
+		for (int i=0; i<customers; i++) {
+			tmp_pid = fork();
+			if(tmp_pid == -1) { perror("Fork: "); exit(1); }
+			else if(tmp_pid == 0) {
+				update_timer();
+				Customer* c = new Customer(i, getpid(), getppid());
+
+				// customer action
+				while((int)seconds <= simulation_time) {
+					//wait
+					p(mutex);
+
+				sleep(sleep_time_gen(3,6));
+				update_timer();
+				readMenu(c->getId());
+
+					v(mutex);
+					// leave
+				}
+
+				delete c;
+				exit(0);	
+			}
+		}
+
+		// main process wait while all children will stop
+		while ((tmp_pid=waitpid(-1, &tmp_status, 0))!=-1) {}
+}
+
  
 int main(int argc, char* argv[]) {
 	
+	mutex = initsem(mutex_key, 1);
 
 	checkInputParams(argc, argv);
 	generateMenu(menu_items);
@@ -352,11 +358,9 @@ int main(int argc, char* argv[]) {
 		update_timer();
 		cout  << " Main process start creating sub-process" << endl;
 
-		//createSubProc(); // waiters and customers
-		menuDecompress();
-		orderBoardsDecompress();
+		createSubProc(); // waiters and customers
 
-		printMenu(menu_items);
+
 	}
 
 	// parent process
