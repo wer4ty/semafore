@@ -44,7 +44,7 @@ int initsem(key_t semkey, int initval)
 	return semid;	
 }
 
-void p(int semid)
+void down(int semid)
 {
 	struct sembuf p_buf;
 	p_buf.sem_num = 0;
@@ -58,7 +58,7 @@ void p(int semid)
 	}
 }
 
-void v(int semid)
+void up(int semid)
 {
 	struct sembuf v_buf;
 	v_buf.sem_num = 0;

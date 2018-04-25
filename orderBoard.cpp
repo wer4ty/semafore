@@ -16,7 +16,7 @@ orderBoard::orderBoard(int c, int i, int a) {
 orderBoard::~orderBoard() {}
 
 void orderBoard::print() {
-	cout << cId << " "<< itemId << " " << amount << " " << done << endl; 
+	cout << cId << "\t\t"<< itemId << "\t\t" << amount << "\t\t" << done << endl; 
 }
 
 char* orderBoard::str() {
