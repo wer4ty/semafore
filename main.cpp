@@ -57,8 +57,8 @@ void update_timer(int flag) {
 	if (flag) cout << fixed << setprecision(3) << seconds << " ";
 }
 
-int sleep_time_gen(int min, int max) {
-	srand ( time(NULL) );
+int random_range(int min, int max) {
+	srand(time(NULL) ^ (getpid()<<16));
 	int len = (max - min) + 1;
 	int *nums =  new int[len];
 
@@ -67,7 +67,7 @@ int sleep_time_gen(int min, int max) {
 		nums[i] = min;
 		i++; min++;
 	}
-	int RIndex = rand() % len;
+	int RIndex = rand() % len ;
 	int tmp = nums[RIndex];
 	delete [] nums;
 	return tmp;
@@ -116,6 +116,7 @@ void printMenu(int number_items) {
 	for(int i=0; i<number_items; i++) {
 		menu[i].print();
 	}
+	cout << "\n=============================" << endl;
 }
 
 
@@ -226,11 +227,8 @@ void readMenu(int cId) {
 	orderBoardsDecompress(); // get order from shared memory and transform to global array
 
 	// check status of previous order
-	cout << "===customer [" << cId <<"] order status [" << customers_orders[cId].getOrderStatus() << "]" << endl;
-
 	if (customers_orders[cId].getOrderStatus()) { // true => finish 
-
-	int RIndex = rand() % menu_items;
+	int RIndex = (rand() + cId) % menu_items;
 	int RAmount = rand() % 4;
 	int probability = rand() % 2;
 
@@ -250,8 +248,6 @@ void readMenu(int cId) {
 			cout << fixed << setprecision(3) << seconds << " " << "\tCustomer ID: " << cId << " reads a menu about " << menu[RIndex].getName() <<" (doesn't want to order)" << endl;
 			}
 	}
-
-		cout << "EF===customer [" << cId <<"] order status [" << customers_orders[cId].getOrderStatus() << "]" << endl;
 }
 
 
@@ -263,13 +259,10 @@ void performOrders(int wId) {
 
 	for (int i=0; i<customers; i++) {
 		if (customers_orders[i].getOrderStatus() == false) {
-			menu[customers_orders[i].getItemId()].increaseOrders();
+			menu[customers_orders[i].getItemId()].setOrders(customers_orders[i].getAmount());
 			customers_orders[i].setOrderStatus(true);
-			cout << fixed << setprecision(3) << seconds << " " << "\tWaiter ID: " << wId << " performs the order of cutomer ID " << i << " ( " << customers_orders[i].getAmount() << " " << menu[customers_orders[i].getItemId()].getName() << ")" << endl;
+			cout << fixed << setprecision(3) << seconds << " " << "\tWaiter ID: " << wId << " performs the order of cutomer ID " << i << " ( " << customers_orders[i].getAmount() << ", " << menu[customers_orders[i].getItemId()].getName() << ")" << endl;
 		}
-		// else {
-		// 	cout << "\tWaiter ID: " << wId << " no orders to perform " << endl;
-		// }
 	}
 
 	// make changes save it in shared memory
@@ -281,6 +274,31 @@ void performOrders(int wId) {
 void createSubProc() {
 	int tmp_pid, tmp_status;
 	
+		// Create customers 
+		for (int i=0; i<customers; i++) {
+			tmp_pid = fork();
+			if(tmp_pid == -1) { perror("Fork: "); exit(1); }
+			else if(tmp_pid == 0) {
+				update_timer(1);
+				Customer* c = new Customer(i, getpid(), getppid());
+
+				// customer action
+				while((int)seconds <= simulation_time) {
+					
+				sleep(random_range(3,6));
+
+				down(customer_mutex);
+					update_timer(0);
+					readMenu(c->getId());
+				up(customer_mutex);
+				}
+
+				update_timer(1);
+				delete c;
+				exit(0);	
+			}
+		}
+
 		// Create waiters 
 		for (int i=0; i<waiters; i++) {
 			tmp_pid = fork();
@@ -293,11 +311,10 @@ void createSubProc() {
 				// waiter action
 				while((int)seconds <= simulation_time) {
 
-				sleep(sleep_time_gen(1,2));
-				update_timer(0);
-
+				sleep(random_range(1,2));
 				down(waiter_mutex);
-				performOrders(w->getId());
+					update_timer(0);
+					performOrders(w->getId());
 				up(waiter_mutex);
 					
 				}
@@ -308,35 +325,23 @@ void createSubProc() {
 			}
 		}
 
-		// Create customers 
-		for (int i=0; i<customers; i++) {
-			tmp_pid = fork();
-			if(tmp_pid == -1) { perror("Fork: "); exit(1); }
-			else if(tmp_pid == 0) {
-				update_timer(1);
-				Customer* c = new Customer(i, getpid(), getppid());
-
-				// customer action
-				while((int)seconds <= simulation_time) {
-					
-				sleep(sleep_time_gen(3,6));
-				update_timer(0);
-
-				down(customer_mutex);
-				readMenu(c->getId());
-				up(customer_mutex);
-				}
-
-				update_timer(1);
-				delete c;
-				exit(0);	
-			}
-		}
-
 		// main process wait while all children will stop
 		while ((tmp_pid=waitpid(-1, &tmp_status, 0))!=-1) {}
 }
 
+// 13. Summarry of nice day
+void summary() {
+		int totalOrders = 0;
+		int totalIncome = 0;
+		menuDecompress(); // get from shared memory
+		printMenu(menu_items); 
+
+		for(int i=0; i<menu_items; i++) {
+			totalOrders += menu[i].getOrdersNum();
+			totalIncome += menu[i].getOrdersNum() * menu[i].getPrice();
+		}
+		cout << "Total orders " << totalOrders << ", for an amount " << totalIncome << " NIL" << endl;
+}
  
 int main(int argc, char* argv[]) {
 
@@ -372,13 +377,15 @@ int main(int argc, char* argv[]) {
 	// parent process
 	else {
 		wait(&status);
-
+		summary(); // result off all simulation
+		cout << endl;
 		update_timer(1);
 		cout << " Main ID " << pid << " end work" << endl;
 	}
 
 
 
-
+	update_timer(1);
+	cout << " End of simulation" << endl;
 	return 0;
 }
