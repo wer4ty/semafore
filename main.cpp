@@ -73,7 +73,6 @@ int random_range(int min, int max) {
 	return tmp;
 }
 
-
 // 1. Check if all simulation params are correct
 void checkInputParams(int argc, char* argv[]) {
 	string error_args = "Input arguments are not valid";
@@ -227,7 +226,7 @@ void readMenu(int cId) {
 	orderBoardsDecompress(); // get order from shared memory and transform to global array
 
 	// check status of previous order
-	if (customers_orders[cId].getOrderStatus()) { // true => finish 
+	if (customers_orders[cId].getOrderStatus() && (int)seconds < simulation_time) { 
 	int RIndex = (rand() + cId) % menu_items;
 	int RAmount = rand() % 4;
 	int probability = rand() % 2;
@@ -274,31 +273,6 @@ void performOrders(int wId) {
 void createSubProc() {
 	int tmp_pid, tmp_status;
 	
-		// Create customers 
-		for (int i=0; i<customers; i++) {
-			tmp_pid = fork();
-			if(tmp_pid == -1) { perror("Fork: "); exit(1); }
-			else if(tmp_pid == 0) {
-				update_timer(1);
-				Customer* c = new Customer(i, getpid(), getppid());
-
-				// customer action
-				while((int)seconds <= simulation_time) {
-					
-				sleep(random_range(3,6));
-
-				down(customer_mutex);
-					update_timer(0);
-					readMenu(c->getId());
-				up(customer_mutex);
-				}
-
-				update_timer(1);
-				delete c;
-				exit(0);	
-			}
-		}
-
 		// Create waiters 
 		for (int i=0; i<waiters; i++) {
 			tmp_pid = fork();
@@ -321,6 +295,31 @@ void createSubProc() {
 
 				update_timer(1);
 				delete w;
+				exit(0);	
+			}
+		}
+
+		// Create customers 
+		for (int i=0; i<customers; i++) {
+			tmp_pid = fork();
+			if(tmp_pid == -1) { perror("Fork: "); exit(1); }
+			else if(tmp_pid == 0) {
+				update_timer(1);
+				Customer* c = new Customer(i, getpid(), getppid());
+
+				// customer action
+				while((int)seconds <= simulation_time) {
+					
+				sleep(random_range(3,6));
+
+				down(customer_mutex);
+					update_timer(0);
+					readMenu(c->getId());
+				up(customer_mutex);
+				}
+
+				update_timer(1);
+				delete c;
 				exit(0);	
 			}
 		}
@@ -370,8 +369,6 @@ int main(int argc, char* argv[]) {
 		cout  << " Main process start creating sub-process" << endl;
 
 		createSubProc(); // waiters and customers
-
-
 	}
 
 	// parent process
@@ -381,11 +378,11 @@ int main(int argc, char* argv[]) {
 		cout << endl;
 		update_timer(1);
 		cout << " Main ID " << pid << " end work" << endl;
+
+		update_timer(1);
+		cout << " End of simulation" << endl;
 	}
 
 
-
-	update_timer(1);
-	cout << " End of simulation" << endl;
 	return 0;
 }
