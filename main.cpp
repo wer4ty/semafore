@@ -39,17 +39,15 @@ SharedMemoryWorker* menuSegment = new SharedMemoryWorker(rand() % 100000);
 SharedMemoryWorker* orderSegment = new SharedMemoryWorker(rand() % 10000);
 
 // semaphores
-key_t mutex_key  = ftok(".", rand() % 1000);
-int mutex = initsem(mutex_key, 1);
+key_t customer_mutex_key  = ftok(".", rand() % 1000);
+int customer_mutex = initsem(customer_mutex_key, 1);
 
-// key_t mutex_time_key = ftok(".", rand() % 2000);
-// int mutex_time = initsem(mutex_time_key, 1);
+key_t waiter_mutex_key  = ftok(".", rand() % 2000);
+int waiter_mutex = initsem(waiter_mutex_key, 1);
 
-key_t s1_key = ftok(".", rand() % 10000);
-int s1 = initsem(s1_key, 0);
+key_t shared_memory_orders_mutex_key  = ftok(".", rand() % 3000);
+int shared_memory_orders_mutex = initsem(shared_memory_orders_mutex_key, 1);
 
-key_t s2_key = ftok(".", rand() % 100);
-int s2 = initsem(s2_key, customers); // number of possible orders by parallel 
 
 // 0.Support functions
 void update_timer(int flag) {
@@ -175,10 +173,12 @@ void putInSharedMemory(int flag) {
 	}
 
 	if (flag == 1) {
-	buffer =  compressToSegment(flag);
-	buffer = buffer.erase(0,1);
-	orderSegment->put(const_cast<char*>(buffer.c_str()));
-	buffer.clear();
+	down(shared_memory_orders_mutex); // lock
+		buffer =  compressToSegment(flag);
+		buffer = buffer.erase(0,1);
+		orderSegment->put(const_cast<char*>(buffer.c_str()));
+		buffer.clear();
+	up(shared_memory_orders_mutex); // unlock
 	}
 }
 
@@ -203,27 +203,32 @@ void menuDecompress() {
 // 9. Decompress order boards from shared memory to global array orderBoards[]
 void orderBoardsDecompress() {
 	
-	char* tmp_orders = orderSegment->get(); // get from shared memory
-	string s = tmp_orders;
-	string delimiter = ":";
-	int j = 0;
-	size_t pos = 0;
-	string token;
-	while ((pos = s.find(delimiter)) != string::npos) {
-		token = s.substr(0, pos);
-		customers_orders[j].obj(const_cast<char*>(token.c_str()));
-	    s.erase(0, pos + delimiter.length());
-	    j++;
-	}
-	customers_orders[j].obj(const_cast<char*>(s.c_str()));
+	down(shared_memory_orders_mutex); // lock
+		char* tmp_orders = orderSegment->get(); // get from shared memory
+		string s = tmp_orders;
+		string delimiter = ":";
+		int j = 0;
+		size_t pos = 0;
+		string token;
+		while ((pos = s.find(delimiter)) != string::npos) {
+			token = s.substr(0, pos);
+			customers_orders[j].obj(const_cast<char*>(token.c_str()));
+		    s.erase(0, pos + delimiter.length());
+		    j++;
+		}
+		customers_orders[j].obj(const_cast<char*>(s.c_str()));
+	up(shared_memory_orders_mutex); // unlock
 }
 
 // 10. Customers functions
 void readMenu(int cId) {
-	// check status of previous order
-	if (customers_orders[cId].getOrderStatus()) { // true => finish 
 
 	orderBoardsDecompress(); // get order from shared memory and transform to global array
+
+	// check status of previous order
+	cout << "===customer [" << cId <<"] order status [" << customers_orders[cId].getOrderStatus() << "]" << endl;
+
+	if (customers_orders[cId].getOrderStatus()) { // true => finish 
 
 	int RIndex = rand() % menu_items;
 	int RAmount = rand() % 4;
@@ -245,6 +250,8 @@ void readMenu(int cId) {
 			cout << fixed << setprecision(3) << seconds << " " << "\tCustomer ID: " << cId << " reads a menu about " << menu[RIndex].getName() <<" (doesn't want to order)" << endl;
 			}
 	}
+
+		cout << "EF===customer [" << cId <<"] order status [" << customers_orders[cId].getOrderStatus() << "]" << endl;
 }
 
 
@@ -258,16 +265,16 @@ void performOrders(int wId) {
 		if (customers_orders[i].getOrderStatus() == false) {
 			menu[customers_orders[i].getItemId()].increaseOrders();
 			customers_orders[i].setOrderStatus(true);
-			cout << fixed << setprecision(3) << seconds << " " << "\tWaiter ID: " << wId << " performs the order of cutomer ID " << i << " ( " << customers_orders[i].getAmount() << " " << menu[customers_orders[i].getItemId()].getName() << ")";
-
-			// make changes save it in shared memory
-			putInSharedMemory(1);
-			putInSharedMemory(0);
+			cout << fixed << setprecision(3) << seconds << " " << "\tWaiter ID: " << wId << " performs the order of cutomer ID " << i << " ( " << customers_orders[i].getAmount() << " " << menu[customers_orders[i].getItemId()].getName() << ")" << endl;
 		}
 		// else {
 		// 	cout << "\tWaiter ID: " << wId << " no orders to perform " << endl;
 		// }
 	}
+
+	// make changes save it in shared memory
+	putInSharedMemory(1);
+	putInSharedMemory(0);
 }
 
 // 12. Create sub-processes
@@ -289,9 +296,9 @@ void createSubProc() {
 				sleep(sleep_time_gen(1,2));
 				update_timer(0);
 
-				down(mutex);
+				down(waiter_mutex);
 				performOrders(w->getId());
-				up(mutex);
+				up(waiter_mutex);
 					
 				}
 
@@ -315,10 +322,9 @@ void createSubProc() {
 				sleep(sleep_time_gen(3,6));
 				update_timer(0);
 
-				down(mutex); 
+				down(customer_mutex);
 				readMenu(c->getId());
-				up(mutex); 
-
+				up(customer_mutex);
 				}
 
 				update_timer(1);
