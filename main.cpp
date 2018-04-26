@@ -259,7 +259,7 @@ void performOrders(int wId) {
 
 	for (int i=0; i<customers; i++) {
 		if (customers_orders[i].getOrderStatus() == false) {
-			menu[customers_orders[i].getItemId()].setOrders(customers_orders[i].getAmount());
+			menu[customers_orders[i].getItemId()].increaseOrders(customers_orders[i].getAmount());
 			customers_orders[i].setOrderStatus(true);
 			cout << fixed << setprecision(3) << seconds << " " << "\tWaiter ID: " << wId << " performs the order of cutomer ID " << i << " ( " << customers_orders[i].getAmount() << ", " << menu[customers_orders[i].getItemId()].getName() << ")" << endl;
 		}

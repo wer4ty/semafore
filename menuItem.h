@@ -20,8 +20,7 @@ class menuItem {
 		char* str();
 		menuItem* obj(char *);
 
-		inline void increaseOrders() { orders++; }
-		inline void setOrders (int num) { orders = num; }
+		inline void increaseOrders(int num) { orders+=num; }
 		inline string getName() {return name; }
 		inline int getId() {return id; }
 		inline int getPrice() {return price; }
